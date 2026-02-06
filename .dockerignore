@@ -1,0 +1,10 @@
+.git
+.gradle
+build
+.idea
+.env
+.vscode
+.claude
+*.md
+docker-compose.yml
+*.sql
