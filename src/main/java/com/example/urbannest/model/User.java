@@ -16,9 +16,9 @@ public class User {
     @Getter @Setter
     private UUID userId;
 
-    @Column(name = "cognito_sub", unique = true, nullable = false)
+    @Column(name = "firebase_uid", unique = true, nullable = false)
     @Setter
-    private String cognitoSub;
+    private String firebaseId;
 
     @Column(name = "name", nullable = false)
     @Getter @Setter
