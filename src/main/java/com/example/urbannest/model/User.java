@@ -51,4 +51,8 @@ public class User {
     @Column(name = "role_name", nullable = false)
     @Getter @Setter
     private String roleName;
+
+    @Column(name = "profile_picture_url")
+    @Getter @Setter
+    private String profilePictureUrl;
 }
