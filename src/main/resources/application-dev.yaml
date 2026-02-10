@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${AWS_RDS_URL}:5432/${AWS_RDS_DB}
+    username: ${AWS_RDS_USER}
+    password: ${AWS_RDS_PASSWORD}

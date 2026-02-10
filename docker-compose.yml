@@ -31,9 +31,9 @@ services:
       db:
         condition: service_healthy
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${POSTGRES_DB}
-      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
-      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${AWS_RDS_URL}:5432/${AWS_RDS_DB}
+      - SPRING_DATASOURCE_USERNAME=${AWS_RDS_USER}
+      - SPRING_DATASOURCE_PASSWORD=${AWS_RDS_PASSWORD}
     networks:
       - urbannest-network
     restart: unless-stopped

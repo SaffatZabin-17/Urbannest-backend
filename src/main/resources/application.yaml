@@ -1,10 +1,8 @@
 spring:
   application:
     name: urbannest
-  datasource:
-    url: jdbc:postgresql://localhost:5432/urbannest
-    username: postgres
-    password: password
+  profiles:
+    active: local
   flyway:
     enabled: true
     locations: classpath:db/migration
