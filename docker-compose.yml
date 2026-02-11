@@ -34,6 +34,10 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${AWS_RDS_URL}:5432/${AWS_RDS_DB}
       - SPRING_DATASOURCE_USERNAME=${AWS_RDS_USER}
       - SPRING_DATASOURCE_PASSWORD=${AWS_RDS_PASSWORD}
+      - AWS_S3_ACCESS_KEY_SECRET=${AWS_S3_ACCESS_KEY_SECRET}
+      - AWS_S3_ACCESS_KEY_ID=${AWS_S3_ACCESS_KEY_ID}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
+      - AWS_S3_REGION=${AWS_S3_REGION}
     networks:
       - urbannest-network
     restart: unless-stopped

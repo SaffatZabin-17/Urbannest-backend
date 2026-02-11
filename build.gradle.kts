@@ -33,6 +33,8 @@ dependencies {
 	implementation("com.google.firebase:firebase-admin:9.7.1")
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("me.paulschwarz:spring-dotenv:4.0.0")
+	implementation(platform("software.amazon.awssdk:bom:2.31.9"))
+	implementation("software.amazon.awssdk:s3")
 	compileOnly("org.projectlombok:lombok")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
 	runtimeOnly("org.postgresql:postgresql")
