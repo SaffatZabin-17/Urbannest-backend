@@ -18,5 +18,8 @@ jobs:
                 java-version: '21'
                 cache: 'gradle'
             
+            - name: Grant execution permission to Gradle wrapper
+              run: chmod +x ./gradlew
+                
             - name: Build
               run: ./gradlew build -x test --no-daemon
