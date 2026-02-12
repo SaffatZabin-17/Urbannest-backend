@@ -40,3 +40,6 @@ out/
 ### Secrets ###
 .env
 src/main/resources/firebase-service-account.json
+
+### secret encryption keys ###
+*.pem
