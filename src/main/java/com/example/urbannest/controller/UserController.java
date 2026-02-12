@@ -1,6 +1,8 @@
 package com.example.urbannest.controller;
 
 import com.example.urbannest.dto.Requests.UserRegistrationRequest;
+import com.example.urbannest.dto.Requests.UserUpdateRequest;
+import com.example.urbannest.dto.Responses.ApiResponse;
 import com.example.urbannest.dto.Responses.UserResponse;
 import com.example.urbannest.service.UserService;
 import com.google.firebase.auth.FirebaseToken;
@@ -35,6 +37,15 @@ public class UserController {
         FirebaseToken token = getFirebaseToken();
         UserResponse response = userService.getAuthenticatedUser(token);
         return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/me")
+    public ResponseEntity<ApiResponse> updateCurrentUser(
+            @RequestBody UserUpdateRequest request
+    ){
+        FirebaseToken token = getFirebaseToken();
+        userService.updateProfile(token, request);
+        return ResponseEntity.ok(new ApiResponse(true, "Profile updated successfully"));
     }
 
     private FirebaseToken getFirebaseToken() {

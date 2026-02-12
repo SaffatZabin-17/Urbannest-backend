@@ -1,6 +1,7 @@
 package com.example.urbannest.service;
 
 import com.example.urbannest.dto.Requests.UserRegistrationRequest;
+import com.example.urbannest.dto.Requests.UserUpdateRequest;
 import com.example.urbannest.dto.Responses.UserResponse;
 import com.example.urbannest.exception.ResourceAlreadyExistsException;
 import com.example.urbannest.exception.ResourceNotFoundException;
@@ -57,6 +58,27 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return constructResponse(user);
+    }
+
+    public void updateProfile(FirebaseToken token, UserUpdateRequest request) {
+        String firebaseUid = token.getUid();
+        User user = userRepository.findByFirebaseId(firebaseUid)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (request.getName() != null) {
+            user.setName(request.getName());
+        }
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone());
+        }
+        if(request.getNid() != null) {
+            user.setNidHash(HashUtil.generateHash(request.getNid()));
+        }
+        if (request.getProfilePictureUrl() != null) {
+            user.setProfilePictureUrl(request.getProfilePictureUrl());
+        }
+        user.setUpdatedAt(OffsetDateTime.now());
+        userRepository.save(user);
     }
 
     private UserResponse constructResponse(User user) {
