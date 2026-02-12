@@ -15,7 +15,7 @@ server:
     context-path: /api
 
 firebase:
-  service-account-file: firebase-service-account.json
+  service-account-file: classpath:firebase-service-account.json
 
 aws:
   s3:
