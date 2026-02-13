@@ -2,6 +2,7 @@ package com.example.urbannest.service;
 
 import java.time.OffsetDateTime;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.example.urbannest.dto.Requests.UserRegistrationRequest;
@@ -12,12 +13,17 @@ import com.example.urbannest.exception.ResourceAlreadyExistsException;
 import com.example.urbannest.exception.ResourceNotFoundException;
 import com.example.urbannest.model.User;
 import com.example.urbannest.repository.UserRepository;
+import com.example.urbannest.util.EncryptionUtil;
 import com.example.urbannest.util.HashUtil;
 import com.google.firebase.auth.FirebaseToken;
 
 @Service
 public class UserService {
     private final UserRepository userRepository;
+
+    @Value("${encryption.nid-key}")
+    private String nidEncryptionKey;
+
     public UserService(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
@@ -59,6 +65,7 @@ public class UserService {
             user.setEmail(request.getEmail());
             user.setPhone(request.getPhone());
             user.setNidHash(nidHash);
+            user.setNidEncrypted(EncryptionUtil.encrypt(request.getNid(), nidEncryptionKey));
         }
 
         userRepository.save(user);
@@ -87,6 +94,7 @@ public class UserService {
         }
         if(request.getNid() != null) {
             user.setNidHash(HashUtil.generateHash(request.getNid()));
+            user.setNidEncrypted(EncryptionUtil.encrypt(request.getNid(), nidEncryptionKey));
         }
         if (request.getProfilePictureUrl() != null) {
             user.setProfilePictureUrl(request.getProfilePictureUrl());
@@ -104,6 +112,9 @@ public class UserService {
         response.setRoleName(user.getRoleName());
         response.setProfilePictureUrl(user.getProfilePictureUrl());
         response.setCreatedAt(user.getCreatedAt());
+        if (user.getNidEncrypted() != null) {
+            response.setNid(EncryptionUtil.decrypt(user.getNidEncrypted(), nidEncryptionKey));
+        }
         return response;
     }
 }

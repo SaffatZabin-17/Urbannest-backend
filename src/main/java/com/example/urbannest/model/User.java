@@ -36,6 +36,10 @@ public class User {
     @Setter
     private String nidHash;
 
+    @Column(name = "nid_encrypted")
+    @Getter @Setter
+    private String nidEncrypted;
+
     @Column(name = "created_at", nullable = false)
     @Getter @Setter
     private OffsetDateTime createdAt;

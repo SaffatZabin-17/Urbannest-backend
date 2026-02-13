@@ -13,6 +13,7 @@ public class UserResponse {
     private String name;
     private String email;
     private String phone;
+    private String nid;
     private String roleName;
     private String profilePictureUrl;
     private OffsetDateTime createdAt;
