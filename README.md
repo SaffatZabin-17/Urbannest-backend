@@ -68,7 +68,7 @@ src/main/java/com/example/urbannest/
 ├── repository/         # Spring Data JPA repositories
 ├── security/           # Firebase auth filter
 ├── service/            # Business logic
-└── util/               # Utility classes (hashing)
+└── util/               # Utility classes (hashing, encryption)
 ```
 
 ## API Endpoints
@@ -99,7 +99,7 @@ All endpoints are prefixed with `/api`.
 ### Entities
 
 **User** - Platform users with Firebase authentication
-- Fields: userId, firebaseId, name, email, phone, nidHash (SHA-512), profilePictureUrl, roleName, timestamps
+- Fields: userId, firebaseId, name, email, phone, nidHash (SHA-512), nidEncrypted (AES-256-GCM), profilePictureUrl, roleName, timestamps
 
 **Listing** - Property listings
 - Fields: listingId, user (FK), propertyType, propertyStatus, title, description, pricing, timestamps
@@ -153,12 +153,24 @@ All endpoints are prefixed with `/api`.
 | V5 | Rename enum value `new` → `brand_new` |
 | V6 | Rename `cognito_sub` → `firebase_uid` (Cognito to Firebase migration) |
 | V7 | Add profile_picture_url to users |
+| V8 | Add nid_encrypted column to users |
 
-## Authentication
+## Security
+
+### Authentication
 
 Authentication uses **Firebase Admin SDK**. The `FirebaseAuthFilter` intercepts all requests, extracts the Bearer token from the `Authorization` header, and verifies it with Firebase. The decoded `FirebaseToken` is stored in the Spring Security context and passed to controllers/services.
 
 Google login is supported — users authenticating via Google are registered with their Google profile data (name, email, profile picture).
+
+### NID Encryption
+
+National ID (NID) values are protected using a dual-storage approach:
+
+- **nid_hash** (SHA-512) — One-way hash used for uniqueness checks. Cannot be reversed. Ensures no two users register with the same NID.
+- **nid_encrypted** (AES-256-GCM) — Reversible encryption used for retrieval. The NID is encrypted server-side before storing and decrypted when returning to the authenticated user.
+
+The encryption key is stored as a server-side environment variable (`NID_ENCRYPTION_KEY`) and never leaves the backend. Each encryption produces a unique ciphertext due to a random 12-byte IV (Initialization Vector), and GCM mode provides built-in tamper detection via authentication tags.
 
 ## File Storage (S3)
 
@@ -228,6 +240,7 @@ Nginx runs on EC2 as a reverse proxy, terminating HTTPS (Let's Encrypt certifica
 | `AWS_S3_BUCKET_NAME` | S3 bucket name |
 | `AWS_REGION` | AWS region |
 | `FIREBASE_SERVICE_ACCOUNT_FILE` | Path to Firebase credentials |
+| `NID_ENCRYPTION_KEY` | AES-256 key for NID encryption (base64) |
 
 ## Local Development
 
