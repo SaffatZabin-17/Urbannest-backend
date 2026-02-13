@@ -24,11 +24,11 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<UserResponse> createUser(
+    public ResponseEntity<ApiResponse> createUser(
             @Valid @RequestBody(required = false) UserRegistrationRequest request) {
 
         FirebaseToken token = getFirebaseToken();
-        UserResponse response = userService.registerUser(token, request);
+        ApiResponse response = userService.registerUser(token, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

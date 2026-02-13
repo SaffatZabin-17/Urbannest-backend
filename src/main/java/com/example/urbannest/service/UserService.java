@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.example.urbannest.dto.Requests.UserRegistrationRequest;
 import com.example.urbannest.dto.Requests.UserUpdateRequest;
+import com.example.urbannest.dto.Responses.ApiResponse;
 import com.example.urbannest.dto.Responses.UserResponse;
 import com.example.urbannest.exception.ResourceAlreadyExistsException;
 import com.example.urbannest.exception.ResourceNotFoundException;
@@ -21,7 +22,7 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    public UserResponse registerUser(FirebaseToken token, UserRegistrationRequest request) {
+    public ApiResponse registerUser(FirebaseToken token, UserRegistrationRequest request) {
         String firebaseUid = token.getUid();
 
         userRepository.findByFirebaseId(firebaseUid).ifPresent(user -> {
@@ -42,14 +43,26 @@ public class UserService {
             user.setProfilePictureUrl(token.getPicture());
             user.setNidHash("NOT_SET_" + firebaseUid);
         } else {
+            String nidHash = HashUtil.generateHash(request.getNid());
+            boolean phoneTaken = request.getPhone() != null && userRepository.existsByPhone(request.getPhone());
+            boolean nidTaken = userRepository.existsByNidHash(nidHash);
+
+            if (phoneTaken && nidTaken) {
+                throw new ResourceAlreadyExistsException("Phone number and NID need to be unique");
+            } else if (phoneTaken) {
+                throw new ResourceAlreadyExistsException("Phone number is already registered");
+            } else if (nidTaken) {
+                throw new ResourceAlreadyExistsException("NID is already registered");
+            }
+
             user.setName(request.getName());
             user.setEmail(request.getEmail());
             user.setPhone(request.getPhone());
-            user.setNidHash(HashUtil.generateHash(request.getNid()));
+            user.setNidHash(nidHash);
         }
 
-        User savedUser = userRepository.save(user);
-        return constructResponse(savedUser);
+        userRepository.save(user);
+        return new ApiResponse(true, "User registered successfully");
     }
 
     public UserResponse getAuthenticatedUser(FirebaseToken token) {

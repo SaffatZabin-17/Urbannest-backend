@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByFirebaseId(String firebaseId);
+    boolean existsByPhone(String phone);
+    boolean existsByNidHash(String nidHash);
 }
