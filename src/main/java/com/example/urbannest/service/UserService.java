@@ -1,5 +1,9 @@
 package com.example.urbannest.service;
 
+import java.time.OffsetDateTime;
+
+import org.springframework.stereotype.Service;
+
 import com.example.urbannest.dto.Requests.UserRegistrationRequest;
 import com.example.urbannest.dto.Requests.UserUpdateRequest;
 import com.example.urbannest.dto.Responses.UserResponse;
@@ -9,9 +13,6 @@ import com.example.urbannest.model.User;
 import com.example.urbannest.repository.UserRepository;
 import com.example.urbannest.util.HashUtil;
 import com.google.firebase.auth.FirebaseToken;
-import org.springframework.stereotype.Service;
-
-import java.time.OffsetDateTime;
 
 @Service
 public class UserService {
@@ -39,7 +40,7 @@ public class UserService {
             user.setName(token.getName());
             user.setEmail(token.getEmail());
             user.setProfilePictureUrl(token.getPicture());
-            user.setNidHash("NOT_SET");
+            user.setNidHash("NOT_SET_" + firebaseUid);
         } else {
             user.setName(request.getName());
             user.setEmail(request.getEmail());
