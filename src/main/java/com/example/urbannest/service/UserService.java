@@ -2,6 +2,7 @@ package com.example.urbannest.service;
 
 import java.time.OffsetDateTime;
 
+import com.example.urbannest.mapper.UserMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -20,12 +21,14 @@ import com.google.firebase.auth.FirebaseToken;
 @Service
 public class UserService {
     private final UserRepository userRepository;
+    private final UserMapper userMapper;
 
     @Value("${encryption.nid-key}")
     private String nidEncryptionKey;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, UserMapper userMapper) {
         this.userRepository = userRepository;
+        this.userMapper = userMapper;
     }
 
     public ApiResponse registerUser(FirebaseToken token, UserRegistrationRequest request) {
@@ -78,7 +81,7 @@ public class UserService {
         User user = userRepository.findByFirebaseId(firebaseUid)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        return constructResponse(user);
+        return userMapper.toUserResponse(user, nidEncryptionKey);
     }
 
     public void updateProfile(FirebaseToken token, UserUpdateRequest request) {
@@ -101,20 +104,5 @@ public class UserService {
         }
         user.setUpdatedAt(OffsetDateTime.now());
         userRepository.save(user);
-    }
-
-    private UserResponse constructResponse(User user) {
-        UserResponse response = new UserResponse();
-        response.setUserId(user.getUserId());
-        response.setName(user.getName());
-        response.setEmail(user.getEmail());
-        response.setPhone(user.getPhone());
-        response.setRoleName(user.getRoleName());
-        response.setProfilePictureUrl(user.getProfilePictureUrl());
-        response.setCreatedAt(user.getCreatedAt());
-        if (user.getNidEncrypted() != null) {
-            response.setNid(EncryptionUtil.decrypt(user.getNidEncrypted(), nidEncryptionKey));
-        }
-        return response;
     }
 }
