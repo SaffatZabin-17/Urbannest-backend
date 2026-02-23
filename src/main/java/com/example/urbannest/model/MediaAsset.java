@@ -1,6 +1,5 @@
 package com.example.urbannest.model;
 
-import com.example.urbannest.model.enums.MediaContentType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -27,10 +26,8 @@ public class MediaAsset {
     @Column(name = "s3_location", nullable = false)
     private String s3Location;
 
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "content_type", nullable = false)
-    private MediaContentType contentType;
+    private String contentType;
 
     @Column(name = "byte_size", nullable = false)
     private Long byteSize;
