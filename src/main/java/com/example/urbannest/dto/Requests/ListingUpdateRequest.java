@@ -2,6 +2,7 @@ package com.example.urbannest.dto.Requests;
 
 import com.example.urbannest.model.enums.FacingDirection;
 import com.example.urbannest.model.enums.ListingCondition;
+import com.example.urbannest.model.enums.PropertyStatus;
 import com.example.urbannest.model.enums.PropertyType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -20,6 +21,7 @@ public class ListingUpdateRequest {
     private String description;
     private PropertyType propertyType;
     private BigDecimal pricing;
+    private PropertyStatus propertyStatus;
 
     @Valid
     private Details details;

@@ -78,4 +78,16 @@ public class Listing {
     @Setter
     private OffsetDateTime deletedAt;
 
+    @OneToOne(mappedBy = "listing", fetch = FetchType.LAZY)
+    @Getter
+    private ListingDetails listingDetails;
+
+    @OneToOne(mappedBy = "listing", fetch = FetchType.LAZY)
+    @Getter
+    private ListingLocation listingLocation;
+
+    @OneToOne(mappedBy = "listing", fetch = FetchType.LAZY)
+    @Getter
+    private ListingCounters listingCounters;
+
 }

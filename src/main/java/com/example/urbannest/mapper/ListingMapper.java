@@ -20,6 +20,9 @@ public interface ListingMapper {
     @Mapping(target = "propertyStatus", ignore = true)
     @Mapping(target = "publishedAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
+    @Mapping(target = "listingDetails", ignore = true)
+    @Mapping(target = "listingLocation", ignore = true)
+    @Mapping(target = "listingCounters", ignore = true)
     @Mapping(target = "createdAt", expression = "java(OffsetDateTime.now())")
     @Mapping(target = "updatedAt", expression = "java(OffsetDateTime.now())")
     Listing toListing(ListingCreateRequest request);
@@ -37,13 +40,22 @@ public interface ListingMapper {
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "listingId", ignore = true)
     @Mapping(target = "user", ignore = true)
-    @Mapping(target = "propertyStatus", ignore = true)
     @Mapping(target = "publishedAt", ignore = true)
     @Mapping(target = "deletedAt", ignore = true)
+    @Mapping(target = "listingDetails", ignore = true)
+    @Mapping(target = "listingLocation", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "pricing", ignore = true)
+    @Mapping(target = "listingCounters", ignore = true)
     @Mapping(target = "updatedAt", expression = "java(OffsetDateTime.now())")
     void updateListingFromRequest(ListingUpdateRequest request, @MappingTarget Listing listing);
+
+    @AfterMapping
+    default void setPublishedAtOnUpdate(ListingUpdateRequest request, @MappingTarget Listing listing) {
+        if (request.getPropertyStatus() == PropertyStatus.published && listing.getPublishedAt() == null) {
+            listing.setPublishedAt(OffsetDateTime.now());
+        }
+    }
 
     @Mapping(target = "owner", ignore = true)
     @Mapping(target = "details", ignore = true)

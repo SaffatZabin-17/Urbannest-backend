@@ -4,31 +4,33 @@ import com.example.urbannest.dto.Requests.ListingCreateRequest;
 import com.example.urbannest.dto.Requests.ListingUpdateRequest;
 import com.example.urbannest.dto.Responses.ApiResponse;
 import com.example.urbannest.dto.Responses.ListingResponse;
+import com.example.urbannest.exception.ResourceAlreadyExistsException;
 import com.example.urbannest.exception.ResourceNotFoundException;
 import com.example.urbannest.exception.UnauthorizedAccessException;
 import com.example.urbannest.mapper.ListingDetailsMapper;
 import com.example.urbannest.mapper.ListingMapper;
 import com.example.urbannest.mapper.MediaAssetMapper;
 import com.example.urbannest.model.*;
+import com.example.urbannest.model.composite.FavoriteListingId;
+import com.example.urbannest.model.composite.SavedListingId;
 import com.example.urbannest.model.enums.PropertyStatus;
-import com.example.urbannest.repository.ListingCountersRepository;
-import com.example.urbannest.repository.ListingDetailsRepository;
-import com.example.urbannest.repository.ListingLocationRepository;
-import com.example.urbannest.repository.ListingMediaRepository;
-import com.example.urbannest.repository.ListingPriceHistoryRepository;
-import com.example.urbannest.repository.ListingRepository;
-import com.example.urbannest.repository.MediaAssetRepository;
-import com.example.urbannest.repository.UserRepository;
+import com.example.urbannest.model.enums.PropertyType;
+import com.example.urbannest.repository.*;
+import com.example.urbannest.specification.ListingSpecification;
 import com.google.firebase.auth.FirebaseToken;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class ListingService {
@@ -39,6 +41,8 @@ public class ListingService {
     private final ListingMediaRepository listingMediaRepository;
     private final ListingPriceHistoryRepository listingPriceHistoryRepository;
     private final MediaAssetRepository mediaAssetRepository;
+    private final FavoriteListingRepository favoriteListingRepository;
+    private final SavedListingRepository savedListingRepository;
     private final UserRepository userRepository;
     private final S3Service s3Service;
     private final ListingMapper listingMapper;
@@ -52,6 +56,8 @@ public class ListingService {
                           ListingMediaRepository listingMediaRepository,
                           ListingPriceHistoryRepository listingPriceHistoryRepository,
                           MediaAssetRepository mediaAssetRepository,
+                          FavoriteListingRepository favoriteListingRepository,
+                          SavedListingRepository savedListingRepository,
                           UserRepository userRepository,
                           S3Service s3Service,
                           ListingMapper listingMapper,
@@ -64,6 +70,8 @@ public class ListingService {
         this.listingMediaRepository = listingMediaRepository;
         this.listingPriceHistoryRepository = listingPriceHistoryRepository;
         this.mediaAssetRepository = mediaAssetRepository;
+        this.favoriteListingRepository = favoriteListingRepository;
+        this.savedListingRepository = savedListingRepository;
         this.userRepository = userRepository;
         this.s3Service = s3Service;
         this.listingMapper = listingMapper;
@@ -107,23 +115,10 @@ public class ListingService {
     }
 
     public ListingResponse getListingById(UUID listingId) {
-        Listing listing = resolveListing(listingId);
-
-        ListingDetails details = listingDetailsRepository.findById(listingId).orElse(null);
-        ListingLocation location = listingLocationRepository.findById(listingId).orElse(null);
-        ListingCounters counters = listingCountersRepository.findById(listingId).orElse(null);
-        List<ListingMedia> mediaList = listingMediaRepository.findByListingListingIdOrderBySortOrderAsc(listingId);
-
-        ListingResponse response = listingMapper.toListingResponse(
-                listing, details, location, counters, mediaList, listingDetailsMapper, mediaAssetMapper);
-
-        response.getMedia().forEach(media -> {
-            media.setUrl(s3Service.generateDownloadUrl(media.getUrl()));
-        });
-
-        return response;
+        Listing listing = listingRepository.findByListingId(listingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Listing with id " + listingId + " not found"));
+        return buildListingResponse(listing);
     }
-
 
     @Transactional
     public ApiResponse updateListing(FirebaseToken token, UUID listingId, ListingUpdateRequest request) {
@@ -175,8 +170,7 @@ public class ListingService {
 
     @Transactional
     public ApiResponse deleteListing(FirebaseToken token, UUID listingId) {
-        Listing listing = listingRepository.findById(listingId).orElse(null);
-        assert listing != null;
+        Listing listing = resolveListing(listingId);
         verifyOwnership(listing, token);
         listing.setPropertyStatus(PropertyStatus.archived);
         listing.setDeletedAt(OffsetDateTime.now());
@@ -184,75 +178,199 @@ public class ListingService {
         return new ApiResponse(true, "Listing deleted successfully");
     }
 
+    public Page<ListingResponse> getListings(PropertyType propertyType,
+                                             BigDecimal priceMin,
+                                             BigDecimal priceMax,
+                                             String district,
+                                             Integer minBedrooms,
+                                             Pageable pageable) {
+        Specification<Listing> spec = ListingSpecification.withFilters(
+                propertyType, priceMin, priceMax, district, minBedrooms);
+        Page<Listing> page = listingRepository.findAll(spec, pageable);
+        return buildListingResponsePage(page);
+    }
+
+    public Page<ListingResponse> getMyListings(FirebaseToken token, Pageable pageable) {
+        User user = resolveUser(token);
+        Page<Listing> page = listingRepository.findByUserAndDeletedAtIsNull(user, pageable);
+        return buildListingResponsePage(page);
+    }
+
     @Transactional
-    public ApiResponse publishListing(FirebaseToken token, UUID listingId) {
-        Listing listing = listingRepository.findById(listingId).orElse(null);
-        assert listing != null;
-        verifyOwnership(listing, token);
-        listing.setPropertyStatus(PropertyStatus.published);
-        listingRepository.save(listing);
-        return new ApiResponse(true, "Listing published successfully");
-    }
-
-    public ApiResponse markAsSold(FirebaseToken token, UUID listingId) {
-        Listing listing = listingRepository.findById(listingId).orElse(null);
-        assert listing != null;
-        verifyOwnership(listing, token);
-        listing.setPropertyStatus(PropertyStatus.sold);
-        listingRepository.save(listing);
-        return new ApiResponse(true, "Marked as sold successfully");
-    }
-
-    /** Public listing search with filters + pagination */
-    public Page<Listing> getListings(Pageable pageable) {
-        // TODO: add filter params (propertyType, priceMin, priceMax, district, bedrooms, etc.)
-        return null;
-    }
-
-    /** Get all listings owned by the authenticated user */
-    public Page<Listing> getMyListings(FirebaseToken token, Pageable pageable) {
-        // TODO: implement
-        return null;
-    }
-
-    // ======================== FAVORITES ========================
-
-    /** Add a listing to user's favorites */
     public ApiResponse addFavorite(FirebaseToken token, UUID listingId) {
-        // TODO: implement — increment listing favorite count
-        return null;
+        User user = resolveUser(token);
+        Listing listing = resolveListing(listingId);
+
+        FavoriteListingId id = new FavoriteListingId();
+        id.setUserId(user.getUserId());
+        id.setListingId(listingId);
+
+        if (favoriteListingRepository.existsById(id)) {
+            throw new ResourceAlreadyExistsException("Listing is already in favorites");
+        }
+
+        FavoriteListing favorite = new FavoriteListing();
+        favorite.setId(id);
+        favorite.setUser(user);
+        favorite.setListing(listing);
+        favorite.setCreatedAt(OffsetDateTime.now());
+        favoriteListingRepository.save(favorite);
+
+        ListingCounters counters = listingCountersRepository.findById(listingId).orElse(null);
+        if (counters != null) {
+            counters.setFavoriteCount(counters.getFavoriteCount() + 1);
+            listingCountersRepository.save(counters);
+        }
+
+        return new ApiResponse(true, "Listing added to favorites");
     }
 
-    /** Remove a listing from user's favorites */
+    @Transactional
     public ApiResponse removeFavorite(FirebaseToken token, UUID listingId) {
-        // TODO: implement — decrement listing favorite count
-        return null;
+        User user = resolveUser(token);
+
+        FavoriteListingId id = new FavoriteListingId();
+        id.setUserId(user.getUserId());
+        id.setListingId(listingId);
+
+        if (!favoriteListingRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Listing is not in favorites");
+        }
+
+        favoriteListingRepository.deleteById(id);
+
+        ListingCounters counters = listingCountersRepository.findById(listingId).orElse(null);
+        if (counters != null) {
+            counters.setFavoriteCount(Math.max(0, counters.getFavoriteCount() - 1));
+            listingCountersRepository.save(counters);
+        }
+
+        return new ApiResponse(true, "Listing removed from favorites");
     }
 
-    /** Get all favorite listings for the authenticated user */
-    public Page<Listing> getMyFavorites(FirebaseToken token, Pageable pageable) {
-        // TODO: implement
-        return null;
+    public Page<ListingResponse> getMyFavorites(FirebaseToken token, Pageable pageable) {
+        User user = resolveUser(token);
+        Page<FavoriteListing> favoritePage = favoriteListingRepository.findByUser(user, pageable);
+
+        List<UUID> listingIds = favoritePage.getContent().stream()
+                .map(fav -> fav.getListing().getListingId())
+                .toList();
+
+        Map<UUID, List<ListingMedia>> mediaByListing = batchFetchMedia(listingIds);
+
+        return favoritePage.map(fav -> buildListingResponseFromLoaded(fav.getListing(), mediaByListing));
     }
 
-    // ======================== SAVED ========================
-
-    /** Save a listing for later */
+    @Transactional
     public ApiResponse saveListing(FirebaseToken token, UUID listingId) {
-        // TODO: implement — increment listing save count
-        return null;
+        User user = resolveUser(token);
+        Listing listing = resolveListing(listingId);
+
+        SavedListingId id = new SavedListingId();
+        id.setUserId(user.getUserId());
+        id.setListingId(listingId);
+
+        if (savedListingRepository.existsById(id)) {
+            throw new ResourceAlreadyExistsException("Listing is already saved");
+        }
+
+        SavedListing saved = new SavedListing();
+        saved.setId(id);
+        saved.setUser(user);
+        saved.setListing(listing);
+        saved.setCreatedAt(OffsetDateTime.now());
+        savedListingRepository.save(saved);
+
+        ListingCounters counters = listingCountersRepository.findById(listingId).orElse(null);
+        if (counters != null) {
+            counters.setSaveCount(counters.getSaveCount() + 1);
+            listingCountersRepository.save(counters);
+        }
+
+        return new ApiResponse(true, "Listing saved successfully");
     }
 
-    /** Remove a saved listing */
+    @Transactional
     public ApiResponse unsaveListing(FirebaseToken token, UUID listingId) {
-        // TODO: implement — decrement listing save count
-        return null;
+        User user = resolveUser(token);
+
+        SavedListingId id = new SavedListingId();
+        id.setUserId(user.getUserId());
+        id.setListingId(listingId);
+
+        if (!savedListingRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Listing is not saved");
+        }
+
+        savedListingRepository.deleteById(id);
+
+        ListingCounters counters = listingCountersRepository.findById(listingId).orElse(null);
+        if (counters != null) {
+            counters.setSaveCount(Math.max(0, counters.getSaveCount() - 1));
+            listingCountersRepository.save(counters);
+        }
+
+        return new ApiResponse(true, "Listing unsaved successfully");
     }
 
-    /** Get all saved listings for the authenticated user */
-    public Page<Listing> getMySavedListings(FirebaseToken token, Pageable pageable) {
-        // TODO: implement
-        return null;
+    public Page<ListingResponse> getMySavedListings(FirebaseToken token, Pageable pageable) {
+        User user = resolveUser(token);
+        Page<SavedListing> savedPage = savedListingRepository.findByUser(user, pageable);
+
+        List<UUID> listingIds = savedPage.getContent().stream()
+                .map(saved -> saved.getListing().getListingId())
+                .toList();
+
+        Map<UUID, List<ListingMedia>> mediaByListing = batchFetchMedia(listingIds);
+
+        return savedPage.map(saved -> buildListingResponseFromLoaded(saved.getListing(), mediaByListing));
+    }
+
+    // ======================== HELPERS ========================
+
+    private ListingResponse buildListingResponse(Listing listing) {
+        List<ListingMedia> mediaList = listingMediaRepository.findByListingListingIdOrderBySortOrderAsc(listing.getListingId());
+        return mapListingToResponse(listing, mediaList);
+    }
+
+    private Page<ListingResponse> buildListingResponsePage(Page<Listing> page) {
+        List<UUID> listingIds = page.getContent().stream()
+                .map(Listing::getListingId)
+                .toList();
+
+        Map<UUID, List<ListingMedia>> mediaByListing = batchFetchMedia(listingIds);
+
+        return page.map(listing -> buildListingResponseFromLoaded(listing, mediaByListing));
+    }
+
+    private ListingResponse buildListingResponseFromLoaded(Listing listing, Map<UUID, List<ListingMedia>> mediaByListing) {
+        List<ListingMedia> mediaList = mediaByListing.getOrDefault(listing.getListingId(), List.of());
+        return mapListingToResponse(listing, mediaList);
+    }
+
+    private ListingResponse mapListingToResponse(Listing listing, List<ListingMedia> mediaList) {
+        ListingResponse response = listingMapper.toListingResponse(
+                listing,
+                listing.getListingDetails(),
+                listing.getListingLocation(),
+                listing.getListingCounters(),
+                mediaList,
+                listingDetailsMapper,
+                mediaAssetMapper);
+
+        response.getMedia().forEach(media ->
+                media.setUrl(s3Service.generateDownloadUrl(media.getUrl())));
+
+        return response;
+    }
+
+    private Map<UUID, List<ListingMedia>> batchFetchMedia(List<UUID> listingIds) {
+        if (listingIds.isEmpty()) {
+            return Map.of();
+        }
+        return listingMediaRepository.findByListingListingIdInOrderBySortOrderAsc(listingIds)
+                .stream()
+                .collect(Collectors.groupingBy(m -> m.getListing().getListingId()));
     }
 
     private User resolveUser(FirebaseToken token) {
@@ -264,7 +382,6 @@ public class ListingService {
         return listingRepository.findById(listingId).orElseThrow(() -> new ResourceNotFoundException("Listing with id " + listingId + " not found"));
     }
 
-    /** Verify the authenticated user owns the listing, throw 403 if not */
     private void verifyOwnership(Listing listing, FirebaseToken token) throws UnauthorizedAccessException {
         if(!Objects.equals(listing.getUser().getFirebaseId(), token.getUid())) {
             throw new UnauthorizedAccessException("You are not allowed to perform this operation");
