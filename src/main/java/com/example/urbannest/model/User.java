@@ -17,6 +17,7 @@ public class User {
     private UUID userId;
 
     @Column(name = "firebase_uid", unique = true, nullable = false)
+    @Getter
     @Setter
     private String firebaseId;
 

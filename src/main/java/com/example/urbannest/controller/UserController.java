@@ -9,10 +9,8 @@ import com.google.firebase.auth.FirebaseToken;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Objects;
+import com.example.urbannest.util.FirebaseUtil;
 
 @RestController
 @RequestMapping("/users")
@@ -27,14 +25,14 @@ public class UserController {
     public ResponseEntity<ApiResponse> createUser(
             @Valid @RequestBody(required = false) UserRegistrationRequest request) {
 
-        FirebaseToken token = getFirebaseToken();
+        FirebaseToken token = FirebaseUtil.getFirebaseToken();
         ApiResponse response = userService.registerUser(token, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getCurrentUser() {
-        FirebaseToken token = getFirebaseToken();
+        FirebaseToken token = FirebaseUtil.getFirebaseToken();
         UserResponse response = userService.getAuthenticatedUser(token);
         return ResponseEntity.ok(response);
     }
@@ -43,13 +41,8 @@ public class UserController {
     public ResponseEntity<ApiResponse> updateCurrentUser(
             @RequestBody UserUpdateRequest request
     ){
-        FirebaseToken token = getFirebaseToken();
+        FirebaseToken token = FirebaseUtil.getFirebaseToken();
         userService.updateProfile(token, request);
         return ResponseEntity.ok(new ApiResponse(true, "Profile updated successfully"));
-    }
-
-    private FirebaseToken getFirebaseToken() {
-        return (FirebaseToken) Objects.requireNonNull(SecurityContextHolder.getContext()
-                .getAuthentication()).getPrincipal();
     }
 }
