@@ -1,5 +1,6 @@
 HELP.md
 TODO.md
+CLAUDE.md
 .gradle
 build/
 !gradle/wrapper/gradle-wrapper.jar
