@@ -32,6 +32,7 @@ dependencies {
 	implementation("org.flywaydb:flyway-database-postgresql")
 	implementation("com.google.firebase:firebase-admin:9.7.1")
 	implementation("org.springframework.boot:spring-boot-starter-security")
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.1")
 	implementation("me.paulschwarz:spring-dotenv:4.0.0")
 	implementation(platform("software.amazon.awssdk:bom:2.31.9"))
 	implementation("software.amazon.awssdk:s3")
