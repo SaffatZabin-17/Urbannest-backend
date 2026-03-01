@@ -15,10 +15,12 @@ A real estate platform backend built with Spring Boot, providing RESTful APIs fo
 | Migrations | Flyway |
 | Authentication | Firebase Admin SDK |
 | File Storage | AWS S3 (Presigned URLs) |
+| Monitoring | Prometheus + Grafana (Micrometer metrics) |
 | Containerization | Docker (multi-stage build) |
+| Orchestration | Docker Compose |
 | CI/CD | GitHub Actions |
 | Container Registry | AWS ECR |
-| Hosting | AWS EC2 (t2.micro) |
+| Hosting | AWS EC2 (t3.small) |
 | Reverse Proxy | Nginx |
 | SSL | Let's Encrypt (Certbot) |
 | DNS | Porkbun |
@@ -37,6 +39,11 @@ Spring Boot (port 8080)
     ├──▶ PostgreSQL (AWS RDS)
     ├──▶ AWS S3 (file storage)
     └──▶ Firebase Auth (token verification)
+
+Prometheus ──scrapes──▶ Spring Boot /actuator/prometheus (every 15s)
+    │
+    ▼
+Grafana (port 3000) ──reads──▶ Prometheus (port 9090)
 ```
 
 ### Request Flow
@@ -90,6 +97,8 @@ All endpoints are prefixed with `/api`.
 | GET | `/blogs/**` | Browse blog posts |
 | GET | `/v3/api-docs` | OpenAPI 3.0 JSON schema |
 | GET | `/swagger-ui.html` | Interactive API documentation |
+| GET | `/actuator/prometheus` | Prometheus metrics endpoint |
+| GET | `/actuator/health` | Application health status |
 
 ### Listing Endpoints
 
@@ -255,6 +264,31 @@ The encryption key is stored as a server-side environment variable (`NID_ENCRYPT
 
 File uploads use **presigned URLs** — the client requests a presigned PUT URL from the backend, then uploads directly to S3 without the file passing through the server. Downloads work similarly with presigned GET URLs that expire after 60 minutes.
 
+## Monitoring
+
+Application metrics are collected via **Micrometer** (Spring Boot Actuator) and exposed at `/api/actuator/prometheus`. **Prometheus** scrapes these metrics every 15 seconds, and **Grafana** provides dashboards for visualization.
+
+### Metrics Collected
+
+| Category | Examples |
+|---|---|
+| HTTP | Request count, response times (P50/P95/P99), error rates per endpoint |
+| JVM | Heap/non-heap memory usage, garbage collection, thread count |
+| HikariCP | Active/idle database connections, connection wait time |
+| System | CPU usage, uptime |
+
+### Container Setup
+
+All monitoring runs alongside the application via Docker Compose:
+
+| Container | Port | Purpose |
+|---|---|---|
+| `urbannest-app` | 8080 | Spring Boot application |
+| `urbannest-prometheus` | 9090 | Metrics collection and storage |
+| `urbannest-grafana` | 3000 | Dashboards and visualization |
+
+Prometheus and Grafana ports are restricted to authorized IPs via EC2 security group rules.
+
 ## CI/CD Pipeline
 
 ### Build Check (Pull Requests)
@@ -268,8 +302,11 @@ PR to main → Checkout → Setup Java 21 → Gradle Build (skip tests)
 ```
 Push to main → Checkout → Configure AWS → Login to ECR
     → Build Docker Image → Tag (SHA + latest) → Push to ECR
-    → SSH into EC2 → Pull Image → Stop Old Container → Run New Container
+    → SCP docker-compose.yml + prometheus.yml to EC2
+    → SSH into EC2 → docker compose pull app → docker compose up -d
 ```
+
+Docker Compose handles container orchestration — only containers with changed images or config are recreated. Prometheus and Grafana remain untouched during app-only deploys.
 
 ### Docker Build (Multi-Stage)
 
@@ -287,7 +324,7 @@ FROM eclipse-temurin:21-jre
 
 | Service | Purpose |
 |---|---|
-| EC2 (t2.micro) | Application hosting |
+| EC2 (t3.small) | Application + monitoring hosting |
 | RDS (PostgreSQL 17) | Managed database |
 | S3 | File/media storage |
 | ECR | Docker image registry |
@@ -339,7 +376,9 @@ Nginx runs on EC2 as a reverse proxy, terminating HTTPS (Let's Encrypt certifica
 ### Run with Docker Compose
 
 ```bash
-docker compose up
+docker compose --profile local up --build
 ```
+
+The `local` profile starts a PostgreSQL container alongside the app. Without it, only the app, Prometheus, and Grafana containers start (for EC2 deployment where RDS provides the database).
 
 The app will be available at `http://localhost:8080/api`.
