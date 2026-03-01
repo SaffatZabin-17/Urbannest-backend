@@ -26,3 +26,14 @@ aws:
 
 encryption:
   nid-key: ${ENCRYPTION_KEY}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus, metrics
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
