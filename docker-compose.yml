@@ -2,6 +2,8 @@ services:
   db:
     image: postgres:16
     container_name: urbannest-db
+    profiles:
+      - local
     volumes:
       - pgdata:/var/lib/postgresql/data
     environment:
@@ -24,12 +26,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: ${ECR_IMAGE}
     container_name: urbannest-app
+    env_file:
+      - .env
+    volumes:
+      - ./firebase-service-account.json:/app/firebase-service-account.json
     ports:
       - 8080:8080
     depends_on:
       db:
         condition: service_healthy
+        required: false      # On EC2, no db container is running
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${AWS_RDS_URL}:5432/${AWS_RDS_DB}
       - SPRING_DATASOURCE_USERNAME=${AWS_RDS_USER}
@@ -42,10 +50,38 @@ services:
       - urbannest-network
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: urbannest-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    ports:
+      - 9090:9090
+    depends_on:
+      - app
+    networks:
+      - urbannest-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: urbannest-grafana
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - 3000:3000
+    depends_on:
+      - prometheus
+    networks:
+      - urbannest-network
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  prometheus-data:
+  grafana-data:
 
 networks:
   urbannest-network:
     driver: bridge
-

@@ -36,6 +36,8 @@ dependencies {
 	implementation("me.paulschwarz:spring-dotenv:4.0.0")
 	implementation(platform("software.amazon.awssdk:bom:2.31.9"))
 	implementation("software.amazon.awssdk:s3")
+	implementation("org.springframework.boot:spring-boot-starter-actuator")
+	implementation("io.micrometer:micrometer-registry-prometheus")
 	compileOnly("org.projectlombok:lombok")
 	implementation("org.mapstruct:mapstruct:1.6.3")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")

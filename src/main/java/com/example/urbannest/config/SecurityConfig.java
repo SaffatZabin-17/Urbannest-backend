@@ -37,6 +37,7 @@ public class SecurityConfig {
                         .requestMatchers("/blogs/**").permitAll()
                         .requestMatchers("/health").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(firebaseAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
